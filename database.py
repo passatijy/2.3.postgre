@@ -1,23 +1,3 @@
-'''
-def create_db(): # создает таблицы
-	pass
-
-def get_students(course_id): # возвращает студентов определенного курса
-	pass
-
-def add_students(course_id, students): # создает студентов и 
-									   # записывает их на курс
-	pass
-
-
-def add_student(student): # просто создает студента
-	pass
-
-def get_student(student_id):
-	pass
-
-
-'''
 from random import randrange,choice
 import psycopg2 
 import ast
@@ -74,33 +54,28 @@ def get_all_students(connstr):
 	result = some_sql_action(connstr, execstring)
 	return result
 
-def get_student(student_id):
-	pass
+def get_student(connstr, student_id):
+	execstring = 'SELECT * from student WHERE id =' + student_id +';'
+	result = some_sql_action(connstr, execstring)
+	return result
 
-def add_students(connstr):
-	print("input students as list of dicts [{'name':'Ivan Petrov','gpa':'5.1','birthdate':'2016-06-22 22:10:25-04','course':'1'},{}]")
-	stud = input('Enter there: ')
-	try:
-		studlist = ast.literal_eval(stud)
-	except Exception as error:
-		print('Something goes wrong,', error)
-	#print('Studlist: ', studlist, 'type:', type(studlist))
-	for k in studlist:
-		execstring = execstring = 'INSERT INTO student(name, gpa, birth) VALUES ' + "('" + studdict['name'] +"','" + studdict['gpa'] + "','" + studdict['birthdate'] + "');" 
+def get_student_by_course(connstr, course_id):
+	execstring = 'SELECT * from student WHERE course_id =' + course_id +';'
+	result = some_sql_action(connstr, execstring)
+	return result
+
+def add_students(connstr, studs):
+	print('studs_type:', type(studs))
+	print('studs: ', studs)
+	for k in studs:
+		execstring = 'INSERT INTO student(name, gpa, birth, course_id) VALUES ' + "('" + k['name'] +"','" + k['gpa'] + "','" + k['birthdate'] + "','" + k['course'] + "');" 
 		some_sql_action(connstr, execstring)
 
-
-def add_student(connstr):
+def add_student(connstr, stud):
 	''' Input student name, gpa, birth date with timezone as dict 
 	{'name':'Ivan Petrov','gpa':'5.1','birthdate':'2016-06-22 22:10:25-04'}
 	'''
-	print("input student as dict {'name':'Ivan Petrov','gpa':'5.1','birthdate':'2016-06-22 22:10:25-04','course':'1'}")
-	stud = input('Enter there: ')
-	try:
-		studdict = ast.literal_eval(stud)
-	except Exception as error:
-		print('Something goes wrong,', error)
-	execstring = 'INSERT INTO student(name, gpa, birth) VALUES ' + "('" + studdict['name'] +"','" + studdict['gpa'] + "','" + studdict['birthdate'] + "');" 
+	execstring = 'INSERT INTO student(name, gpa, birth) VALUES ' + "('" + stud['name'] +"','" + stud['gpa'] + "','" + stud['birthdate'] + "');" 
 	some_sql_action(connstr, execstring)
 
 def listdb(connstr):
@@ -108,72 +83,75 @@ def listdb(connstr):
 	result = some_sql_action(connstr, execstring)
 	return result
 
-def main_repeater(conn, dbname):
-	operate_spec = {
+def main_repeater(conn, dbname, onestud, studlistdict, searchstudid, searchcourseid):
+	op_conn = {
 	'database':dbname, 
 	'user':'postgres',
-	'password':'docker',
+	'password':'postgres',
 	'host':'localhost'}
 
-	repeat = True
-	while repeat:
-		command = input('  Введите команду (n-newdb,d-deldb,l-listdb,s-showone stud,a-addonestud;p - add list of studs; h - помощь; q - выход) ')
-		if command == 'q' :
-			repeat = False
-			break
-		elif command == 'h' :
-			print('no help')
-		elif command == 'n':
-			print('making new db with name:', dbname)
-			print('conn: ', conn)
-			print('operate_spec:', operate_spec)
-			createdb(conn, dbname)
-			spec2 = '(id serial PRIMARY KEY, name varchar(100) NOT NULL)'
-			print('Create table course')
-			createtable(operate_spec,"course",spec2)
-			spec = '(id serial PRIMARY KEY, name varchar(100) NOT NULL, gpa numeric(10,2),birth timestamp, course_id integer )'
-			print('Create table student')
-			createtable(operate_spec,"student",spec)
-			spec3 = "INSERT into course (name) values ('math'),('physics'),('biology');"
-			some_sql_action(operate_spec,spec3)
-			spec4 = 'ALTER table public.student ADD CONSTRAINT course_constr_id FOREIGN KEY (course_id) REFERENCES course (id);'
-			some_sql_action(operate_spec,spec4)
-		elif command == 'd':
-			dbname = input('Db to remove: ')
-			print('removing db', dbname)
-			dropdb(conn, dbname)
-		elif command == 's':
-			k = get_all_students(operate_spec)
-			for st in k:
-				print('Student name:', st)
-		elif command == 'l':
-			listdb_list = listdb(conn)
-			for k in listdb_list:
-				print('Database name:', k[0])
-		elif command == 'a':
-			add_student(operate_spec)
-		elif command == 'p':
-			add_students(operate_spec)
-		else:
-			print('  Нет такой команды. Попробуйте еще.')
+	print('-----Lets--start-----')
+	print('main connector:', conn)
+	print('opr. connector:', op_conn)
+	print('making new db with name:', dbname)
+	createdb(conn, dbname)
 
-'''
-Student:
- id     | integer                  | not null
- name   | character varying(100)   | not null
- gpa    | numeric(10,2)            |
- birth  | timestamp with time zone |
+	print('-----Creating--tables-----')
+	spec2 = '(id serial PRIMARY KEY, name varchar(100) NOT NULL)'
+	print('Create table course')
+	createtable(op_conn,"course",spec2)
 
-Course:
- id     | integer                  | not null
- name   | character varying(100)   | not null'''
+	spec = '(id serial PRIMARY KEY, name varchar(100) NOT NULL, gpa numeric(10,2),birth timestamp, course_id integer )'
+	print('Create table student')
+	createtable(op_conn,"student",spec)
+
+	spec3 = "INSERT into course (name) values ('math'),('physics'),('biology');"
+	some_sql_action(op_conn,spec3)
+
+	spec4 = 'ALTER table public.student ADD CONSTRAINT course_constr_id FOREIGN KEY (course_id) REFERENCES course (id);'
+	some_sql_action(op_conn,spec4)
+	input('press "enter" key to continue(you can verify db and tables from another window with psql)')
+
+	print('-----List-of-databases-----')
+	listdb_list = listdb(conn)
+	for k in listdb_list:
+		print('Database name:', k[0])
+
+	print('-----Adding--one--student-----')
+	add_student(op_conn, onestud)
+	print('-----Adding--list--of--students-----')
+	add_students(op_conn, studlistdict)
+	print('-----All--students-----')
+	k = get_all_students(op_conn)
+	for st in k:
+		print('Student name:', st)
+
+	print('-----Find student with id=2-----')
+	print('Found student:', get_student(op_conn, searchstudid))
+
+	print('-----Find all students with course_id=2-----')
+	print('Found students:', get_student_by_course(op_conn,searchcourseid))
+
+	input('All done, after "enter" key pressing the database will be dropped')
+	input('Shure? Press "enter" key to continue')
+
+	print('removing db', dbname)
+	dropdb(conn, dbname)
+
+
 
 if __name__ == '__main__':
 	init_spec = {
 	'database':'postgres', 
 	'user':'postgres',
-	'password':'docker',
+	'password':'postgres',
 	'host':'localhost'}
+	o_stud = {'name':'Kons Uk','gpa':'3.1','birthdate':'199-03-13 22:10:25-04','course':2}
+	m_stud = [
+	{'name':'Ol Petr','gpa':'6.1','birthdate':'2005-07-22 22:10:25-04','course':'2'},
+	{'name':'In Kols','gpa':'3.2','birthdate':'2002-03-10 23:10:25-04','course':'2'},
+	{'name':'Serg Iv','gpa':'5.2','birthdate':'2009-06-22 22:10:25-04','course':'3'},
+	{'name':'Sash Ol','gpa':'4.3','birthdate':'2001-06-24 22:10:25-04','course':'1'}]
 
 	tmpdbname = databasename(suffixes, prefixes)
-	main_repeater(init_spec, tmpdbname)
+	main_repeater(init_spec, tmpdbname, o_stud, m_stud, '2', '2')
